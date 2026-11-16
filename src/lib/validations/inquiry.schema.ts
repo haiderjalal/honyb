@@ -41,11 +41,30 @@ export const inquiryItemSchema = z.object({
   quantity: z.number().int().min(1).max(MAX_QUANTITY_PER_LINE),
 });
 
+/**
+ * A basket of jars. The per-jar limit applies to the total for each jar, so the same jar split across several lines
+ * cannot get past it.
+ */
+export const cartItemsSchema = z
+  .array(inquiryItemSchema)
+  .min(1, "Your hive is empty — add at least one jar.")
+  .max(MAX_CART_LINES, `Please order at most ${MAX_CART_LINES} different jars at once.`)
+  .superRefine((items, ctx) => {
+    const totals = new Map<string, number>();
+    for (const item of items) {
+      const key = `${item.varietySlug}:${item.sizeId}`;
+      totals.set(key, (totals.get(key) ?? 0) + item.quantity);
+    }
+    if ([...totals.values()].some((total) => total > MAX_QUANTITY_PER_LINE)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Please order at most ${MAX_QUANTITY_PER_LINE} of each jar at once.`,
+      });
+    }
+  });
+
 export const inquirySchema = customerSchema.extend({
-  items: z
-    .array(inquiryItemSchema)
-    .min(1, "Your hive is empty — add at least one jar.")
-    .max(MAX_CART_LINES, `Please order at most ${MAX_CART_LINES} different jars at once.`),
+  items: cartItemsSchema,
   idempotencyKey: z.uuid(),
   /** Honeypot: real visitors never see or fill this field. */
   website: z.string().max(200).optional(),

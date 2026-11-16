@@ -3,6 +3,8 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+import { hardenSessionCookie } from "@/lib/security/sessionCookie";
+
 import { getSupabaseConfig } from "./config";
 
 export interface SignedInUser {
@@ -22,8 +24,11 @@ export async function createSessionClient() {
         return cookieStore.getAll();
       },
       setAll(cookiesToSet) {
+        const production = process.env.NODE_ENV === "production";
         try {
-          for (const { name, value, options } of cookiesToSet) cookieStore.set(name, value, options);
+          for (const { name, value, options } of cookiesToSet) {
+            cookieStore.set(name, value, hardenSessionCookie(options, production));
+          }
         } catch {
           // Server Components cannot write cookies. The session refreshes on the next route or action instead.
         }

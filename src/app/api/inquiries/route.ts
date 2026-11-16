@@ -1,7 +1,10 @@
 import { after, NextResponse } from "next/server";
 
+import { getClientIp, networkForLogs } from "@/lib/http/clientIp";
+import { readBodyWithLimit } from "@/lib/http/readBodyWithLimit";
 import { logger } from "@/lib/logger";
 import { createRateLimiter } from "@/lib/rateLimit";
+import { isJsonContentType, isSameSiteOrigin } from "@/lib/security/requestOrigin";
 import { getSignedInUser } from "@/lib/supabase/session";
 import { inquirySchema } from "@/lib/validations/inquiry.schema";
 import { getInquiryService } from "@/services/inquiry.factory";
@@ -19,56 +22,47 @@ type InquiryResponse = NextResponse<ApiResponse<InquiryReceipt>>;
 const fail = (status: number, message: string, errors?: FieldErrors, headers?: HeadersInit): InquiryResponse =>
   NextResponse.json({ success: false, message, errors }, { status, headers });
 
-/** Prefers the platform-set real IP; the first X-Forwarded-For entry can be supplied by the visitor. */
-function clientIp(request: Request): string {
-  const realIp = request.headers.get("x-real-ip")?.trim();
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return realIp || forwarded || "unknown";
-}
-
 /**
- * Reads the body as text, stopping as soon as it exceeds `maxBytes`, so an oversized request
- * is never buffered in full. Returns null when the limit is exceeded.
+ * POST /api/inquiries — validates an order request and hands it to the InquiryService.
+ * Requests must come from this site and be sent as JSON. Suspicious requests are logged with a hashed IP.
  */
-async function readBodyWithLimit(request: Request, maxBytes: number): Promise<string | null> {
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (declared > maxBytes) return null;
-  if (!request.body) return "";
-
-  const reader = request.body.getReader();
-  const decoder = new TextDecoder();
-  let received = 0;
-  let text = "";
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    received += value.byteLength;
-    if (received > maxBytes) {
-      await reader.cancel();
-      return null;
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-  return text + decoder.decode();
-}
-
-/** POST /api/inquiries — validates an order request and hands it to the InquiryService. */
 export async function POST(request: Request): Promise<InquiryResponse> {
-  const rate = limiter.check(clientIp(request));
+  const clientKey = getClientIp(request.headers);
+  const network = networkForLogs(clientKey);
+
+  if (!isSameSiteOrigin(request.url, request.headers.get("origin"))) {
+    logger.warn("Blocked a cross-site order request", { event: "csrf_origin_rejected", route: "inquiries", network });
+    return fail(403, "We couldn't verify this request. Please refresh the page and try again.");
+  }
+
+  if (!isJsonContentType(request.headers.get("content-type"))) {
+    logger.warn("Order request was not sent as JSON", {
+      event: "unexpected_content_type",
+      route: "inquiries",
+      network,
+    });
+    return fail(415, "We couldn't read your request. Please try again.");
+  }
+
+  const rate = limiter.check(clientKey);
   if (!rate.allowed) {
+    logger.warn("Order requests rate limited", { event: "rate_limited", route: "inquiries", network });
     return fail(429, "Too many requests. Please wait a few minutes and try again.", undefined, {
       "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)),
     });
   }
 
   const raw = await readBodyWithLimit(request, MAX_BODY_BYTES);
-  if (raw === null) return fail(413, "Your request is too large.");
+  if (raw === null) {
+    logger.warn("Oversized order request blocked", { event: "oversized_body", route: "inquiries", network });
+    return fail(413, "Your request is too large.");
+  }
 
   let body: unknown;
   try {
     body = JSON.parse(raw);
   } catch {
+    logger.warn("Malformed order request", { event: "malformed_body", route: "inquiries", network });
     return fail(400, "We couldn't read your request. Please try again.");
   }
 
@@ -85,7 +79,7 @@ export async function POST(request: Request): Promise<InquiryResponse> {
 
   // Honeypot filled: pretend success so bots learn nothing.
   if (parsed.data.website) {
-    logger.warn("Inquiry honeypot triggered", {});
+    logger.warn("Inquiry honeypot triggered", { event: "honeypot_filled", route: "inquiries", network });
     return NextResponse.json({
       success: true,
       message: "Thank you! We'll be in touch shortly.",
