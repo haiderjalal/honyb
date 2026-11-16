@@ -1,5 +1,6 @@
 import "server-only";
 
+import { logger } from "@/lib/logger";
 import { getMembershipRepository } from "@/lib/supabase/membershipRepository";
 import { getSignedInUser, type SignedInUser } from "@/lib/supabase/session";
 
@@ -22,5 +23,9 @@ export async function getMembershipAdmin(): Promise<SignedInUser | null> {
   const user = await getSignedInUser();
   if (!user) return null;
 
-  return (await repo.isAdmin(user.id)) ? user : null;
+  if (await repo.isAdmin(user.id)) return user;
+
+  // A signed-in customer reached an admin check. Logged with the user id, which is a pseudonymous identifier.
+  logger.warn("Admin area access denied", { event: "admin_access_denied", userId: user.id });
+  return null;
 }

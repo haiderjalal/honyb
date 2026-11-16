@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE, SIZE_IDS } from "@/constants/catalog";
+import { getClientIp, networkForLogs } from "@/lib/http/clientIp";
+import { readBodyWithLimit } from "@/lib/http/readBodyWithLimit";
 import { logger } from "@/lib/logger";
+import { createRateLimiter } from "@/lib/rateLimit";
+import { isJsonContentType, isSameSiteOrigin } from "@/lib/security/requestOrigin";
+import { cartItemsSchema } from "@/lib/validations/inquiry.schema";
 import { getMembershipRepository } from "@/lib/supabase/membershipRepository";
 import { getSignedInUser } from "@/lib/supabase/session";
 import { getListPrice, getPricedVariant } from "@/services/catalog.service";
@@ -16,19 +20,22 @@ import { rupeesToMinor } from "@/utils/money";
 import type { ApiResponse } from "@/types/api";
 
 const quoteSchema = z.object({
-  items: z
-    .array(
-      z.object({
-        varietySlug: z.string().trim().min(1).max(60),
-        sizeId: z.enum(SIZE_IDS),
-        quantity: z.number().int().min(1).max(MAX_QUANTITY_PER_LINE),
-      }),
-    )
-    .min(1)
-    .max(MAX_CART_LINES),
+  items: cartItemsSchema,
 });
 
 const NO_STORE = { "Cache-Control": "no-store" };
+// A basket of 15 lines is well under 4 KB, so anything larger is not a real basket.
+const MAX_BODY_BYTES = 4 * 1024;
+
+function parseJsonOrNull(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+// Every quote costs a database call for a signed-in member, so one visitor's repeated requests are capped.
+const limiter = createRateLimiter({ limit: 30, windowMs: 60 * 1000 });
 
 /** Prices the basket from the catalogue, merging repeated jars. Returns null for any unknown product. */
 function priceBasket(items: z.infer<typeof quoteSchema>["items"]): OrderDiscountLine[] | null {
@@ -51,16 +58,58 @@ function priceBasket(items: z.infer<typeof quoteSchema>["items"]): OrderDiscount
 
 /**
  * POST /api/membership/quote — the member discount for a basket, for display only. It never reserves an allowance,
- * and a signed-out visitor simply gets { signedIn: false }.
+ * and a signed-out visitor simply gets { signedIn: false }. Requests must come from this site, as JSON.
  */
 export async function POST(request: Request): Promise<NextResponse<ApiResponse<MemberQuote>>> {
+  const clientKey = getClientIp(request.headers);
+  const network = networkForLogs(clientKey);
+
+  if (!isSameSiteOrigin(request.url, request.headers.get("origin"))) {
+    logger.warn("Blocked a cross-site quote request", {
+      event: "csrf_origin_rejected",
+      route: "membership_quote",
+      network,
+    });
+    return NextResponse.json(
+      { success: false, message: "We couldn't verify this request. Please refresh the page and try again." },
+      { status: 403, headers: NO_STORE },
+    );
+  }
+
+  if (!isJsonContentType(request.headers.get("content-type"))) {
+    return NextResponse.json(
+      { success: false, message: "Check your hive and try again." },
+      { status: 415, headers: NO_STORE },
+    );
+  }
+
+  const rate = limiter.check(clientKey);
+  if (!rate.allowed) {
+    logger.warn("Member discount quotes rate limited", { event: "rate_limited", route: "membership_quote", network });
+    return NextResponse.json(
+      { success: false, message: "Too many requests. Please wait a minute and try again." },
+      {
+        status: 429,
+        headers: { ...NO_STORE, "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
+      },
+    );
+  }
+
   const repo = getMembershipRepository();
   const user = repo ? await getSignedInUser().catch(() => null) : null;
   if (!repo || !user) {
     return NextResponse.json({ success: true, message: "", data: { signedIn: false } }, { headers: NO_STORE });
   }
 
-  const parsed = quoteSchema.safeParse(await request.json().catch(() => null));
+  const raw = await readBodyWithLimit(request, MAX_BODY_BYTES);
+  if (raw === null) {
+    return NextResponse.json(
+      { success: false, message: "Your request is too large." },
+      { status: 413, headers: NO_STORE },
+    );
+  }
+
+  const parsed = quoteSchema.safeParse(parseJsonOrNull(raw));
   if (!parsed.success) {
     return NextResponse.json(
       { success: false, message: "Check your hive and try again." },

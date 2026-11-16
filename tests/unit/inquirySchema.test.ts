@@ -15,7 +15,7 @@ const valid = {
 
 const errorFields = (input: unknown): string[] => {
   const result = inquirySchema.safeParse(input);
-  return result.success ? [] : result.error.issues.map((issue) => String(issue.path[0]));
+  return result.success ? [] : [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
 };
 
 describe("inquirySchema", () => {
@@ -62,5 +62,59 @@ describe("inquirySchema", () => {
 
   it("enforces maximum lengths", () => {
     expect(errorFields({ ...valid, notes: "x".repeat(501) })).toEqual(["notes"]);
+  });
+});
+
+describe("inquirySchema per-jar limit", () => {
+  it("refuses the same jar split across lines to get past the per-jar limit", () => {
+    expect(
+      errorFields({
+        ...valid,
+        items: [
+          { varietySlug: "sidr-honey", sizeId: "1kg", quantity: 15 },
+          { varietySlug: "sidr-honey", sizeId: "1kg", quantity: 15 },
+        ],
+      }),
+    ).toEqual(["items"]);
+  });
+
+  it("allows the per-jar limit exactly, across lines", () => {
+    expect(
+      errorFields({
+        ...valid,
+        items: [
+          { varietySlug: "sidr-honey", sizeId: "1kg", quantity: 10 },
+          { varietySlug: "sidr-honey", sizeId: "1kg", quantity: 10 },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it("counts different sizes of the same honey separately", () => {
+    expect(
+      errorFields({
+        ...valid,
+        items: [
+          { varietySlug: "sidr-honey", sizeId: "1kg", quantity: 20 },
+          { varietySlug: "sidr-honey", sizeId: "2kg", quantity: 20 },
+        ],
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("inquirySchema price trust", () => {
+  it("drops any price or total the browser sends, so only the catalogue sets prices", () => {
+    const parsed = inquirySchema.parse({
+      ...valid,
+      total: 1,
+      subtotal: 1,
+      items: [{ varietySlug: "sidr-honey", sizeId: "1kg", quantity: 1, unitPrice: 1, lineTotal: 1 }],
+    });
+
+    expect(parsed).not.toHaveProperty("total");
+    expect(parsed).not.toHaveProperty("subtotal");
+    expect(parsed.items[0]).not.toHaveProperty("unitPrice");
+    expect(parsed.items[0]).not.toHaveProperty("lineTotal");
   });
 });
