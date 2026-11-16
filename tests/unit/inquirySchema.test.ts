@@ -65,6 +65,16 @@ describe("inquirySchema", () => {
   });
 });
 
+describe("inquirySchema honeycomb choice", () => {
+  it("leaves the honeycomb choice unset unless the customer ticks the box", () => {
+    expect(inquirySchema.parse(valid)).not.toHaveProperty("showOnHoneycomb");
+  });
+
+  it("accepts a ticked box as true", () => {
+    expect(inquirySchema.parse({ ...valid, showOnHoneycomb: true }).showOnHoneycomb).toBe(true);
+  });
+});
+
 describe("inquirySchema per-jar limit", () => {
   it("refuses the same jar split across lines to get past the per-jar limit", () => {
     expect(

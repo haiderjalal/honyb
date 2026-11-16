@@ -41,7 +41,7 @@ export function escapeHtml(value: string): string {
 
 const nl2br = (value: string): string => escapeHtml(value).replace(/\n/g, "<br />");
 
-function layout(title: string, body: string): string {
+export function layout(title: string, body: string): string {
   return `<!doctype html><html><body style="margin:0;background:#f6efe1;font-family:Arial,Helvetica,sans-serif;color:#2a1a08">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fffaf0;border-radius:16px;border:1px solid #ecd9b0;overflow:hidden">
@@ -83,6 +83,7 @@ export function ownerInquiryEmail(order: OrderRequest): EmailContent {
     ["Referred by", customer.referral],
     ["Notes", customer.notes],
     ["Member discount", order.membership ? formatPkrMinor(order.membership.discountMinor) : null],
+    ["Honeycomb", customer.showOnHoneycomb ? "Show first name on the honeycomb" : null],
   ];
   const detailsHtml = details
     .filter(([, value]) => value)

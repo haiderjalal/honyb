@@ -1,3 +1,5 @@
+import { HONEY_GUARANTEE } from "@/constants/guarantee";
+
 /** Marketing copy shared by the UI, structured data and llms.txt. */
 
 export interface FaqItem {
@@ -41,8 +43,7 @@ export const FAQ_ITEMS: readonly FaqItem[] = [
   },
   {
     question: "Do you offer a warranty or refund?",
-    answer:
-      "Yes. We offer a lifetime warranty on our honey. If you find something wrong with your honey, we give you a refund.",
+    answer: `Yes. Our honey guarantee covers anything wrong with your honey. We refund everything you paid, delivery included, when you claim within ${HONEY_GUARANTEE.claimWindowDays} days of delivery, with a photo or video of the problem.`,
   },
 ];
 

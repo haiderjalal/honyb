@@ -40,6 +40,38 @@ const PERMANENT_ERRORS = new Set([
   "restricted_api_key",
 ]);
 
+interface SendOptions {
+  idempotencyKey: string;
+  from: string;
+  to: string;
+  content: EmailContent;
+  replyTo?: string;
+}
+
+/** Sends one email, retrying transient failures. Permanent provider errors are not retried. */
+export async function sendEmailWithRetry(
+  client: Resend,
+  { idempotencyKey, from, to, content, replyTo }: SendOptions,
+): Promise<void> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const { error } = await withTimeout(
+        client.emails.send({ from, to, replyTo, ...content }, { idempotencyKey }),
+        SEND_TIMEOUT_MS,
+      );
+      if (!error) return;
+      lastError = new Error(`Resend error: ${error.name} — ${error.message}`);
+      if (PERMANENT_ERRORS.has(error.name)) break;
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt < MAX_ATTEMPTS) await wait(300 * 2 ** (attempt - 1));
+  }
+  throw lastError instanceof Error ? lastError : new Error("Email delivery failed");
+}
+
 export class ResendNotifier implements InquiryNotifier {
   private readonly client: Resend;
 
@@ -70,24 +102,8 @@ export class ResendNotifier implements InquiryNotifier {
     );
   }
 
-  private async send(idempotencyKey: string, to: string, content: EmailContent, replyTo?: string): Promise<void> {
-    let lastError: unknown;
-
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      try {
-        const { error } = await withTimeout(
-          this.client.emails.send({ from: this.from, to, replyTo, ...content }, { idempotencyKey }),
-          SEND_TIMEOUT_MS,
-        );
-        if (!error) return;
-        lastError = new Error(`Resend error: ${error.name} — ${error.message}`);
-        if (PERMANENT_ERRORS.has(error.name)) break;
-      } catch (error) {
-        lastError = error;
-      }
-      if (attempt < MAX_ATTEMPTS) await wait(300 * 2 ** (attempt - 1));
-    }
-    throw lastError instanceof Error ? lastError : new Error("Email delivery failed");
+  private send(idempotencyKey: string, to: string, content: EmailContent, replyTo?: string): Promise<void> {
+    return sendEmailWithRetry(this.client, { idempotencyKey, from: this.from, to, content, replyTo });
   }
 }
 

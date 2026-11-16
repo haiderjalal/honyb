@@ -14,6 +14,8 @@ export interface CustomerOrderInput {
   address: string;
   referral: string | null;
   notes: string | null;
+  /** Shown on the honeycomb straight away, when the customer ticked the box at checkout. */
+  showOnHoneycomb?: boolean;
   subtotalMinor: number;
   membershipDiscountMinor: number;
   totalMinor: number;
@@ -154,6 +156,7 @@ export class CustomerOrderRepository {
       subtotal_minor: input.subtotalMinor,
       membership_discount_minor: input.membershipDiscountMinor,
       total_minor: input.totalMinor,
+      show_on_honeycomb: input.showOnHoneycomb ?? false,
       created_at: input.createdAt.toISOString(),
       items: input.items.map((item) => ({
         line_key: item.lineKey,

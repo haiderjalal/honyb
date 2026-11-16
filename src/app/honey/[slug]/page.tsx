@@ -10,6 +10,7 @@ import { JsonLd } from "@/components/shared/JsonLd";
 import { SectionDivider } from "@/components/shared/SectionDivider";
 import { ROUTES } from "@/constants/routes";
 import { AddToHivePanel } from "@/features/catalog/AddToHivePanel";
+import { HoneyGuaranteeNote } from "@/features/guarantee/components/HoneyGuaranteeNote";
 import { breadcrumbJsonLd, productJsonLd } from "@/lib/seo/jsonLd";
 import { getJarSizes, getStartingPrice, getVarieties, getVarietyBySlug } from "@/services/catalog.service";
 import { formatPkr } from "@/utils/formatPkr";
@@ -111,6 +112,7 @@ export default async function VarietyPage({ params }: PageProps) {
             <p className="text-xl text-gold-300">{variety.tagline}</p>
             <p className="text-lg text-cream-300">{variety.description}</p>
             <AddToHivePanel variety={variety} sizes={sizes} />
+            <HoneyGuaranteeNote />
           </div>
         </div>
 
