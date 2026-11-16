@@ -49,6 +49,11 @@ export function Footer() {
                 Send an order request
               </Link>
             </li>
+            <li>
+              <Link href={ROUTES.guarantee} className="text-cream-300 hover:text-gold-300">
+                Honey guarantee
+              </Link>
+            </li>
             {whatsapp ? (
               <li>
                 <a

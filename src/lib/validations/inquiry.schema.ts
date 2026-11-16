@@ -33,6 +33,8 @@ export const customerSchema = z.object({
     ])
     .optional(),
   notes: z.string().trim().max(500, "Please keep notes under 500 characters.").optional(),
+  /** Ticked by the customer to show their first name on the honeycomb. Off unless they tick it. */
+  showOnHoneycomb: z.boolean().optional(),
 });
 
 export const inquiryItemSchema = z.object({

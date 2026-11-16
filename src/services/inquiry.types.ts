@@ -18,6 +18,8 @@ export interface OrderCustomer {
   address: string;
   referral: string | null;
   notes: string | null;
+  /** True only when the customer ticked the honeycomb box at checkout. */
+  showOnHoneycomb?: boolean;
 }
 
 /** The member discount reserved for an order. Amounts are minor units (paisa), unlike the whole-rupee subtotal. */

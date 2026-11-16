@@ -9,6 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: absoluteUrl(ROUTES.home), changeFrequency: "weekly", priority: 1 },
     { url: absoluteUrl(ROUTES.guide), changeFrequency: "monthly", priority: 0.9 },
+    { url: absoluteUrl(ROUTES.guarantee), changeFrequency: "monthly", priority: 0.7 },
     ...ARTICLES.map((article) => ({
       url: absoluteUrl(ROUTES.guideArticle(article.slug)),
       changeFrequency: "monthly" as const,

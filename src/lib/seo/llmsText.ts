@@ -1,5 +1,6 @@
 import { FAQ_ITEMS, ORDER_STEPS, PROMISES } from "@/constants/content";
 import { DELIVERY_CITIES } from "@/constants/delivery";
+import { HONEY_GUARANTEE } from "@/constants/guarantee";
 import { ROUTES } from "@/constants/routes";
 import { SITE, absoluteUrl } from "@/constants/site";
 import { ARTICLES, type GuideArticleContent } from "@/features/guide/articles";
@@ -39,7 +40,7 @@ ${SITE.name} sells original, pure and natural honey online in Pakistan at ${SITE
 - Website: ${SITE.url}
 - Products: Sidr (beri) honey, Acacia (phulai) honey and Wildflower honey.
 - Delivery: across Pakistan, including ${DELIVERY_CITIES.join(", ")}.
-- Promises: original, pure and natural honey; a lifetime warranty on our honey; a refund if you find something wrong with your honey.
+- Promises: original, pure and natural honey; a honey guarantee: a full refund, delivery included, if anything is wrong with the honey and it is claimed within ${HONEY_GUARANTEE.claimWindowDays} days of delivery.
 
 ## Honey varieties
 

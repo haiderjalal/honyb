@@ -67,6 +67,7 @@ describe("InquiryService", () => {
       address: "House 12,\nModel Town",
       referral: null,
       notes: null,
+      showOnHoneycomb: false,
     });
     expect(notifier.notifyCustomer).toHaveBeenCalledOnce();
   });

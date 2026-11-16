@@ -210,6 +210,7 @@ export class InquiryService {
       address: sanitizeMultiline(input.address),
       referral: referral || null,
       notes: notes || null,
+      showOnHoneycomb: input.showOnHoneycomb === true,
     };
   }
 

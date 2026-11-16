@@ -1,4 +1,5 @@
 import { DELIVERY_CITIES } from "@/constants/delivery";
+import { HONEY_GUARANTEE } from "@/constants/guarantee";
 import { SITE } from "@/constants/site";
 
 import type { FaqItem } from "@/constants/content";
@@ -82,7 +83,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     paragraphs: [
       "HonyB sells raw Sidr (beri), Acacia (phulai) and Wildflower honey in 500 g, 1 kg and 2 kg jars. Every honey we sell is original, pure and natural, and each jar is sealed after pouring.",
       "A real person confirms every order with you by phone or WhatsApp before it ships, so you know what you are paying for. No payment is taken on the website.",
-      "We offer a lifetime warranty on our honey. If you find something wrong with your honey, we give you a refund.",
+      `Every order is covered by our honey guarantee. If anything is wrong with your honey, we refund everything you paid, delivery included, when you claim within ${HONEY_GUARANTEE.claimWindowDays} days of delivery.`,
     ],
   },
   {

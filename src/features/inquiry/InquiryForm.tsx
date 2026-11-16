@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/Button";
 import { InputField, TextareaField } from "@/components/ui/Field";
+import { HoneyGuaranteeNote } from "@/features/guarantee/components/HoneyGuaranteeNote";
 import { customerSchema, type CustomerInput } from "@/lib/validations/inquiry.schema";
 import { formatPkr } from "@/utils/formatPkr";
 
@@ -31,7 +32,16 @@ export function InquiryForm({ subtotal, submitting, serverMessage, serverErrors,
   } = useForm<CustomerInput>({
     resolver: zodResolver(customerSchema),
     mode: "onTouched",
-    defaultValues: { name: "", phone: "", email: "", city: "", address: "", referral: "", notes: "" },
+    defaultValues: {
+      name: "",
+      phone: "",
+      email: "",
+      city: "",
+      address: "",
+      referral: "",
+      notes: "",
+      showOnHoneycomb: false,
+    },
   });
 
   // Surface server-side validation messages on the matching fields.
@@ -124,6 +134,16 @@ export function InquiryForm({ subtotal, submitting, serverMessage, serverErrors,
         {...register("notes")}
       />
 
+      <label className="flex items-start gap-3 text-sm text-cream-100">
+        <input type="checkbox" className="mt-1 size-5 shrink-0 accent-gold-400" {...register("showOnHoneycomb")} />
+        <span>
+          Show my first name on the Honey Hive honeycomb on our homepage.
+          <span className="mt-1 block text-xs text-cream-500">
+            Optional. Only your first name and the first letter of your last name are shown.
+          </span>
+        </span>
+      </label>
+
       {/* Honeypot: hidden from people and assistive tech; bots tend to fill it. */}
       <div aria-hidden="true" className="visually-hidden">
         <label htmlFor="website">Website</label>
@@ -154,6 +174,7 @@ export function InquiryForm({ subtotal, submitting, serverMessage, serverErrors,
       <p className="text-center text-xs text-cream-500">
         No payment is taken online. We confirm delivery and payment with you by phone.
       </p>
+      <HoneyGuaranteeNote />
     </form>
   );
 }

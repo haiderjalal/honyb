@@ -18,6 +18,7 @@ export function toCustomerOrderInput(order: OrderRequest): CustomerOrderInput {
     address: order.customer.address,
     referral: order.customer.referral,
     notes: order.customer.notes,
+    showOnHoneycomb: order.customer.showOnHoneycomb === true,
     subtotalMinor,
     membershipDiscountMinor,
     totalMinor: subtotalMinor - membershipDiscountMinor,
